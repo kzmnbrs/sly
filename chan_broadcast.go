@@ -27,7 +27,7 @@ type (
 //
 //	accept: The context that will be used to cancel the broadcaster.
 //	source: The channel to read values from.
-//	sinkQueueCapacity: The initial capacity of the sink queue.
+//	nsinks: The initial capacity of the sink queue.
 func NewChanBroadcast[T any](accept context.Context, source <-chan T, nsinks uint) ChanBroadcast[T] {
 	if accept == nil {
 		accept = context.Background()
