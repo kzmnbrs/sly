@@ -119,28 +119,28 @@ func (pq *PriorityQueue[T]) Close() []T {
 		return pq.heap
 	}
 
-	backoff := 1
-	for pq.pushInFlight.Load() > 0 {
-		for i := 0; i < backoff; i++ {
-			runtime.Gosched()
-		}
-		if backoff < 16 {
-			backoff <<= 1
-		}
-	}
-
-	for pq.popInFlight.Load() > 0 {
+	pq.waitZero(&pq.pushInFlight, nil)
+	pq.waitZero(&pq.popInFlight, func() {
 		pq.popCond.Broadcast()
-		for i := 0; i < backoff; i++ {
-			runtime.Gosched()
-		}
-		if backoff < 16 {
-			backoff <<= 1
-		}
-	}
+	})
 
 	slices.SortFunc(pq.heap, func(a, b T) int {
 		return pq.compare(a, b) * -1
 	})
 	return pq.heap
+}
+
+func (pq *PriorityQueue[T]) waitZero(v *atomic.Int64, signal func()) {
+	backoff := 1
+	for v.Load() > 0 {
+		if signal != nil {
+			signal()
+		}
+		for i := 0; i < backoff; i++ {
+			runtime.Gosched()
+		}
+		if backoff < 16 {
+			backoff <<= 1
+		}
+	}
 }

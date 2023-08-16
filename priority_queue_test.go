@@ -123,7 +123,7 @@ func TestPriorityQueue(t *testing.T) {
 				}
 			}()
 		}
-		for i := 0; i < runtime.NumCPU(); i++ {
+		for i := 0; i < runtime.NumCPU()*4; i++ {
 			go func() {
 				_, _ = pq.Pop()
 			}()
