@@ -81,7 +81,6 @@ func (pq *PriorityQueue[T]) TryPush(x T) bool {
 	HeapPush(&pq.heap, x, pq.compare)
 	pq.popCond.L.Unlock()
 	pq.popCond.Signal()
-
 	return true
 }
 
