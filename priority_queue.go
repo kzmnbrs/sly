@@ -47,6 +47,9 @@ func NewPriorityQueue[T any](opts PriorityQueueOptions[T]) (*PriorityQueue[T], e
 		return nil, fmt.Errorf("%w: nil comparator", ErrBadOptions)
 	}
 
+	if opts.MaxCap > opts.InitialCap {
+		opts.InitialCap = opts.MaxCap
+	}
 	return &PriorityQueue[T]{
 		heap:    make([]T, 0, opts.InitialCap),
 		compare: opts.Compare,
