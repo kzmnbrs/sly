@@ -25,9 +25,9 @@ type (
 // NewChanBroadcast creates a new ChanBroadcast with the given source
 // channel and initial capacity for sinks.
 //
-//	accept: The context that will be used to cancel the broadcaster.
-//	source: The channel to read values from.
-//	nsinks: The initial capacity of the sink queue.
+//	accept: Cancellation context. If nil, defaults to context.Background().
+//	source: Channel to read from.
+//	nsinks: Initial capacity for the sinks map.
 func NewChanBroadcast[T any](accept context.Context, source <-chan T, nsinks uint) ChanBroadcast[T] {
 	if accept == nil {
 		accept = context.Background()
@@ -46,8 +46,8 @@ func NewChanBroadcast[T any](accept context.Context, source <-chan T, nsinks uin
 
 // AddContext registers a new sink channel to receive broadcasts.
 //
-//	broadcast: The context that will be used to cancel the subscription.
-//	sink: The sink channel.
+//	broadcast: Cancellation context. If nil, defaults to context.Background().
+//	sink: Sink channel.
 //
 // If the broadcast is already canceled, the subscription is ignored.
 //
@@ -80,10 +80,10 @@ func (b *ChanBroadcast[T]) Add(sink chan<- T) {
 
 // DeleteContext deletes the sink from broadcasting queue.
 //
-//	delete: The context that will be used to cancel the deletion.
-//	sink: The sink channel.
+//	delete: Cancellation context. If nil, defaults to context.Background().
+//	sink: Sink channel previously registered via Add.
 //
-// If the broadcast is already canceled, the deletion is ignored.
+// If the broadcast is canceled, the deletion is ignored.
 //
 // If the sink channel is not registered, the deletion is ignored.
 func (b *ChanBroadcast[T]) DeleteContext(delete context.Context, sink chan<- T) {
@@ -111,7 +111,7 @@ func (b *ChanBroadcast[T]) Delete(sink chan<- T) {
 
 // WaitContext blocks until the broadcaster has finished.
 //
-//	wait: The context that will be used to cancel the wait.
+//	wait: Cancellation context. If nil, defaults to context.Background().
 //
 // Returns an error if the wait was canceled.
 func (b *ChanBroadcast[T]) WaitContext(wait context.Context) error {
