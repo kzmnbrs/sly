@@ -115,7 +115,8 @@ func (pq *PriorityQueue[T]) Pop() (T, bool) {
 	return x, true
 }
 
-// Close the priority queue.
+// Close the priority queue. Denies all further mutations.
+// Blocks until all pending operations are done.
 //
 // Returns the remaining elements in order of priority.
 func (pq *PriorityQueue[T]) Close() []T {
