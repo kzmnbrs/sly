@@ -12,25 +12,25 @@ type (
 	// PriorityQueueOptions are used to construct a new priority queue.
 	//
 	//  InitialCap: Initial capacity.
-	//  MaxCap: Max capacity. If 0, then unlimited.
+	//  Limit: Max capacity. If 0, then unlimited.
 	//  Lock: Queue lock. If nil, then Spinlock.
 	//  Compare: Comparator function.
 	PriorityQueueOptions[T any] struct {
 		InitialCap uint
-		MaxCap     uint
+		Limit      uint
 		Lock       sync.Locker
 		Compare    Compare[T]
 	}
 
 	// The PriorityQueue is a thread-safe priority queue.
 	PriorityQueue[T any] struct {
-		heap         []T
-		compare      Compare[T]
-		maxCap       int
-		done         atomic.Int32
-		pushInFlight atomic.Int64
-		popInFlight  atomic.Int64
-		popCond      sync.Cond
+		heap        []T
+		compare     Compare[T]
+		lim         int
+		done        atomic.Int32
+		pushPending atomic.Int64
+		popPending  atomic.Int64
+		popCond     sync.Cond
 	}
 )
 
@@ -38,7 +38,8 @@ type (
 //
 //	opts: See PriorityQueueOptions.
 //
-// Returns a pointer to the newly created priority queue, or an error if the options are invalid.
+// Returns a pointer to the newly created priority queue, or
+// an error if the options are invalid.
 func NewPriorityQueue[T any](opts PriorityQueueOptions[T]) (*PriorityQueue[T], error) {
 	if opts.Lock == nil {
 		opts.Lock = new(Spinlock)
@@ -47,14 +48,14 @@ func NewPriorityQueue[T any](opts PriorityQueueOptions[T]) (*PriorityQueue[T], e
 		return nil, fmt.Errorf("%w: nil comparator", ErrBadOptions)
 	}
 
-	if opts.MaxCap > opts.InitialCap {
-		opts.InitialCap = opts.MaxCap
+	if opts.Limit > opts.InitialCap {
+		opts.InitialCap = opts.Limit
 	}
 	return &PriorityQueue[T]{
 		heap:    make([]T, 0, opts.InitialCap),
 		compare: opts.Compare,
 		popCond: *sync.NewCond(opts.Lock),
-		maxCap:  int(opts.MaxCap),
+		lim:     int(opts.Limit),
 	}, nil
 }
 
@@ -65,15 +66,14 @@ func NewPriorityQueue[T any](opts PriorityQueueOptions[T]) (*PriorityQueue[T], e
 // Returns true if the element was pushed, or false
 // if the queue is either full or closed.
 func (pq *PriorityQueue[T]) TryPush(x T) bool {
-	if pq.done.Load() == 1 {
+	if pq.IsClosed() {
 		return false
 	}
-
-	pq.pushInFlight.Add(1)
-	defer pq.pushInFlight.Add(-1)
+	pq.pushPending.Add(1)
+	defer pq.pushPending.Add(-1)
 
 	pq.popCond.L.Lock()
-	if pq.maxCap > 0 && len(pq.heap)+1 > pq.maxCap {
+	if pq.lim > 0 && len(pq.heap)+1 > pq.lim {
 		pq.popCond.L.Unlock()
 		return false
 	}
@@ -90,20 +90,25 @@ func (pq *PriorityQueue[T]) TryPush(x T) bool {
 // or the queue is closed.
 //
 // Returns the default value and false in case the queue is closed
-// and nothing remains to pop.
+// or nothing remains to pop.
 func (pq *PriorityQueue[T]) Pop() (T, bool) {
-	pq.popInFlight.Add(1)
-	defer pq.popInFlight.Add(-1)
+	if pq.IsClosed() {
+		var z T
+		return z, false
+	}
+	pq.popPending.Add(1)
+	defer pq.popPending.Add(-1)
 
 	pq.popCond.L.Lock()
 	defer pq.popCond.L.Unlock()
-	for len(pq.heap) == 0 && pq.done.Load() == 0 {
+	for len(pq.heap) == 0 && !pq.IsClosed() {
 		pq.popCond.Wait()
 	}
 
-	if pq.done.Load() == 1 {
-		var def T
-		return def, false
+	// If cond has unlocked due to the queue closure.
+	if pq.IsClosed() {
+		var z T
+		return z, false
 	}
 
 	x := HeapPop(&pq.heap, pq.compare)
@@ -118,8 +123,8 @@ func (pq *PriorityQueue[T]) Close() []T {
 		return pq.heap
 	}
 
-	pq.waitZero(&pq.pushInFlight, nil)
-	pq.waitZero(&pq.popInFlight, func() {
+	pq.waitZero(&pq.pushPending, nil)
+	pq.waitZero(&pq.popPending, func() {
 		pq.popCond.Broadcast()
 	})
 
@@ -129,11 +134,16 @@ func (pq *PriorityQueue[T]) Close() []T {
 	return pq.heap
 }
 
-func (pq *PriorityQueue[T]) waitZero(v *atomic.Int64, signal func()) {
+// IsClosed returns whether the queue is closed.
+func (pq *PriorityQueue[T]) IsClosed() bool {
+	return pq.done.Load() == 1
+}
+
+func (pq *PriorityQueue[T]) waitZero(v *atomic.Int64, effect func()) {
 	backoff := 1
 	for v.Load() > 0 {
-		if signal != nil {
-			signal()
+		if effect != nil {
+			effect()
 		}
 		for i := 0; i < backoff; i++ {
 			runtime.Gosched()

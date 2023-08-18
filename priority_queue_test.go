@@ -13,7 +13,7 @@ func TestNewPriorityQueue(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		opts := PriorityQueueOptions[int]{
 			InitialCap: 1000,
-			MaxCap:     2000,
+			Limit:      2000,
 			Compare:    CompareOrdered[int],
 		}
 		pq, err := NewPriorityQueue(opts)
@@ -24,7 +24,7 @@ func TestNewPriorityQueue(t *testing.T) {
 	t.Run("nil comparator", func(t *testing.T) {
 		opts := PriorityQueueOptions[int]{
 			InitialCap: 1000,
-			MaxCap:     2000,
+			Limit:      2000,
 		}
 		pq, err := NewPriorityQueue(opts)
 		assert.Nil(t, pq)
@@ -35,7 +35,7 @@ func TestNewPriorityQueue(t *testing.T) {
 func TestPriorityQueue(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		pq, err := NewPriorityQueue(PriorityQueueOptions[int]{
-			MaxCap:  3,
+			Limit:   3,
 			Compare: CompareOrdered[int],
 		})
 		assert.NotNil(t, pq)
@@ -63,7 +63,7 @@ func TestPriorityQueue(t *testing.T) {
 
 	t.Run("pop block", func(t *testing.T) {
 		pq, _ := NewPriorityQueue(PriorityQueueOptions[int]{
-			MaxCap:  3,
+			Limit:   3,
 			Compare: CompareOrdered[int],
 		})
 
@@ -98,7 +98,7 @@ func TestPriorityQueue(t *testing.T) {
 
 	t.Run("pop unblock on close", func(t *testing.T) {
 		pq, _ := NewPriorityQueue(PriorityQueueOptions[int]{
-			MaxCap:  3,
+			Limit:   3,
 			Compare: CompareOrdered[int],
 		})
 
@@ -135,7 +135,7 @@ func TestPriorityQueue(t *testing.T) {
 
 func BenchmarkPriorityQueue(b *testing.B) {
 	pq, _ := NewPriorityQueue(PriorityQueueOptions[int]{
-		MaxCap:  4096 * 32,
+		Limit:   4096 * 32,
 		Compare: CompareOrdered[int],
 	})
 
