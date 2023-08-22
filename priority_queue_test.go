@@ -12,9 +12,8 @@ import (
 func TestNewPriorityQueue(t *testing.T) {
 	t.Run("ok", func(t *testing.T) {
 		opts := PriorityQueueOptions[int]{
-			InitialCap: 1000,
-			Limit:      2000,
-			Compare:    CompareOrdered[int],
+			Limit:   2000,
+			Compare: CompareOrdered[int],
 		}
 		pq, err := NewPriorityQueue(opts)
 		assert.NotNil(t, pq)
@@ -23,8 +22,7 @@ func TestNewPriorityQueue(t *testing.T) {
 
 	t.Run("nil comparator", func(t *testing.T) {
 		opts := PriorityQueueOptions[int]{
-			InitialCap: 1000,
-			Limit:      2000,
+			Limit: 2000,
 		}
 		pq, err := NewPriorityQueue(opts)
 		assert.Nil(t, pq)

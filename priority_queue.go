@@ -14,10 +14,9 @@ type (
 	//  Locker: Queue lock. If nil, then SpinLock.
 	//  Compare: Comparator function.
 	PriorityQueueOptions[T any] struct {
-		InitialCap uint
-		Limit      uint
-		Locker     sync.Locker
-		Compare    Compare[T]
+		Limit   uint
+		Locker  sync.Locker
+		Compare Compare[T]
 	}
 
 	// The PriorityQueue is a thread-safe priority queue.
@@ -43,15 +42,15 @@ func NewPriorityQueue[T any](opts PriorityQueueOptions[T]) (*PriorityQueue[T], e
 	if opts.Compare == nil {
 		return nil, fmt.Errorf("%w: nil comparator", ErrBadOptions)
 	}
-
-	if opts.Limit > opts.InitialCap {
-		opts.InitialCap = opts.Limit
+	if opts.Limit == 0 {
+		return nil, fmt.Errorf("%w: unlimitied pq's are not supported", ErrBadOptions)
 	}
+
 	return &PriorityQueue[T]{
-		heap:    make([]T, 0, opts.InitialCap),
+		heap:    make([]T, 0, opts.Limit),
 		compare: opts.Compare,
 		locker:  opts.Locker,
-		wait:    make(chan struct{}),
+		wait:    make(chan struct{}, opts.Limit),
 		lim:     int(opts.Limit),
 	}, nil
 }
@@ -63,17 +62,17 @@ func NewPriorityQueue[T any](opts PriorityQueueOptions[T]) (*PriorityQueue[T], e
 // Returns true if the element has been pushed or false is the queue is full.
 func (pq *PriorityQueue[T]) TryPush(x T) bool {
 	pq.locker.Lock()
-	if pq.lim > 0 && len(pq.heap)+1 > pq.lim {
+	if len(pq.heap)+1 > pq.lim {
 		pq.locker.Unlock()
 		return false
 	}
 
 	HeapPush(&pq.heap, x, pq.compare)
-	pq.locker.Unlock()
 	select {
 	case pq.wait <- struct{}{}:
 	default:
 	}
+	pq.locker.Unlock()
 	return true
 }
 
@@ -91,18 +90,26 @@ func (pq *PriorityQueue[T]) Pop(ctx context.Context) (T, bool) {
 	}
 
 	pq.locker.Lock()
-	defer pq.locker.Unlock()
-	for len(pq.heap) == 0 {
+	if len(pq.heap) != 0 {
+		x := HeapPop(&pq.heap, pq.compare)
 		pq.locker.Unlock()
-		select {
-		case <-pq.wait:
-			pq.locker.Lock()
-		case <-ctx.Done():
-			var z T
+		return x, true
+	}
+	pq.locker.Unlock()
+
+	var z T
+	select {
+	case <-pq.wait:
+		pq.locker.Lock()
+		// Another goroutine could've popped the heap already.
+		if len(pq.heap) == 0 {
+			pq.locker.Unlock()
 			return z, false
 		}
+		x := HeapPop(&pq.heap, pq.compare)
+		pq.locker.Unlock()
+		return x, true
+	case <-ctx.Done():
+		return z, false
 	}
-
-	x := HeapPop(&pq.heap, pq.compare)
-	return x, true
 }
