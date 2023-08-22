@@ -28,6 +28,15 @@ func TestNewPriorityQueue(t *testing.T) {
 		assert.Nil(t, pq)
 		assert.ErrorIs(t, err, ErrBadOptions)
 	})
+
+	t.Run("no limit", func(t *testing.T) {
+		opts := PriorityQueueOptions[int]{
+			Compare: CompareOrdered[int],
+		}
+		pq, err := NewPriorityQueue(opts)
+		assert.Nil(t, pq)
+		assert.ErrorIs(t, err, ErrBadOptions)
+	})
 }
 
 func TestPriorityQueue(t *testing.T) {

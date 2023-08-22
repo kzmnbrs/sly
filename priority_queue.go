@@ -68,10 +68,7 @@ func (pq *PriorityQueue[T]) TryPush(x T) bool {
 	}
 
 	HeapPush(&pq.heap, x, pq.compare)
-	select {
-	case pq.wait <- struct{}{}:
-	default:
-	}
+	pq.wait <- struct{}{}
 	pq.locker.Unlock()
 	return true
 }
