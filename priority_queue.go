@@ -13,7 +13,7 @@ type (
 	//
 	//  InitialCap: Initial capacity.
 	//  Limit: Max capacity. If 0, then unlimited.
-	//  Lock: Queue lock. If nil, then Spinlock.
+	//  Lock: Queue lock. If nil, then SpinLock.
 	//  Compare: Comparator function.
 	PriorityQueueOptions[T any] struct {
 		InitialCap uint
@@ -42,7 +42,7 @@ type (
 // an error if the options are invalid.
 func NewPriorityQueue[T any](opts PriorityQueueOptions[T]) (*PriorityQueue[T], error) {
 	if opts.Lock == nil {
-		opts.Lock = new(Spinlock)
+		opts.Lock = new(SpinLock)
 	}
 	if opts.Compare == nil {
 		return nil, fmt.Errorf("%w: nil comparator", ErrBadOptions)

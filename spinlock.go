@@ -5,11 +5,11 @@ import (
 	"sync/atomic"
 )
 
-// Spinlock is an atomic based active lock.
-type Spinlock int32
+// SpinLock is an atomic based active lock.
+type SpinLock int32
 
 // Lock acquires the lock.
-func (v *Spinlock) Lock() {
+func (v *SpinLock) Lock() {
 	backoff := 1
 	for !atomic.CompareAndSwapInt32((*int32)(v), 0, 1) {
 		for i := 0; i < backoff; i++ {
@@ -22,6 +22,6 @@ func (v *Spinlock) Lock() {
 }
 
 // Unlock releases the lock.
-func (v *Spinlock) Unlock() {
+func (v *SpinLock) Unlock() {
 	atomic.StoreInt32((*int32)(v), 0)
 }
