@@ -20,11 +20,11 @@ type (
 
 	// The PriorityQueue is a thread-safe priority queue.
 	PriorityQueue[T any] struct {
-		heap    []T
-		compare Compare[T]
-		lim     int
-		wait    chan struct{}
-		locker  sync.Locker
+		heap       []T
+		compare    Compare[T]
+		lim        int
+		readyToPop chan struct{}
+		locker     sync.Locker
 	}
 )
 
@@ -46,11 +46,11 @@ func NewPriorityQueue[T any](opts PriorityQueueOptions[T]) (*PriorityQueue[T], e
 	}
 
 	return &PriorityQueue[T]{
-		heap:    make([]T, 0, opts.Limit),
-		compare: opts.Compare,
-		locker:  opts.Locker,
-		wait:    make(chan struct{}, opts.Limit),
-		lim:     int(opts.Limit),
+		heap:       make([]T, 0, opts.Limit),
+		compare:    opts.Compare,
+		locker:     opts.Locker,
+		readyToPop: make(chan struct{}, opts.Limit),
+		lim:        int(opts.Limit),
 	}, nil
 }
 
@@ -67,7 +67,7 @@ func (pq *PriorityQueue[T]) TryPush(x T) bool {
 	}
 
 	HeapPush(&pq.heap, x, pq.compare)
-	pq.wait <- struct{}{}
+	pq.readyToPop <- struct{}{}
 	pq.locker.Unlock()
 	return true
 }
@@ -89,13 +89,14 @@ func (pq *PriorityQueue[T]) Pop(ctx context.Context) (T, bool) {
 	if len(pq.heap) != 0 {
 		x := HeapPop(&pq.heap, pq.compare)
 		pq.locker.Unlock()
+		<-pq.readyToPop
 		return x, true
 	}
 	pq.locker.Unlock()
 
 	var z T
 	select {
-	case <-pq.wait:
+	case <-pq.readyToPop:
 		pq.locker.Lock()
 		// Another goroutine could've popped the heap already.
 		if len(pq.heap) == 0 {
