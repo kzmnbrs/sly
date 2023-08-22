@@ -28,7 +28,7 @@ type (
 //	accept: Cancellation context. If nil, defaults to context.Background().
 //	source: Channel to read from.
 //	nsinks: Initial capacity for the sinks map.
-func NewChanBroadcast[T any](accept context.Context, source <-chan T, nsinks uint) ChanBroadcast[T] {
+func NewChanBroadcast[T any](accept context.Context, source <-chan T, nsinks uint) *ChanBroadcast[T] {
 	if accept == nil {
 		accept = context.Background()
 	}
@@ -41,7 +41,7 @@ func NewChanBroadcast[T any](accept context.Context, source <-chan T, nsinks uin
 		sinks:  make(map[chan<- T]context.Context, nsinks),
 	}
 	go b.run()
-	return b
+	return &b
 }
 
 // AddContext registers a new sink channel to receive broadcasts.
