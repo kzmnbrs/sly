@@ -96,9 +96,8 @@ func heapSiftUp[T any](heap []T, compare Compare[T], current int) {
 }
 
 func heapSiftDown[T any](heap []T, compare Compare[T], current int) {
-	n := len(heap)
+	n := len(heap) - 1
 	for {
-		n--
 		// Naively pick the left one.
 		maxChild := current<<1 + 1
 		// Stop if `current` is a leaf.
