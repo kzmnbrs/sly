@@ -67,7 +67,10 @@ func (pq *PriorityQueue[T]) TryPush(x T) bool {
 	}
 
 	HeapPush(&pq.heap, x, pq.compare)
-	pq.readyToPop <- struct{}{}
+	select {
+	case pq.readyToPop <- struct{}{}:
+	default:
+	}
 	pq.locker.Unlock()
 	return true
 }
@@ -89,7 +92,6 @@ func (pq *PriorityQueue[T]) Pop(ctx context.Context) (T, bool) {
 	if len(pq.heap) != 0 {
 		x := HeapPop(&pq.heap, pq.compare)
 		pq.locker.Unlock()
-		<-pq.readyToPop
 		return x, true
 	}
 	pq.locker.Unlock()
