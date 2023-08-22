@@ -9,7 +9,6 @@ import (
 type (
 	// PriorityQueueOptions are used to construct a new priority queue.
 	//
-	//  InitialCap: Initial capacity.
 	//  Limit: Max capacity. If 0, then unlimited.
 	//  Locker: Queue lock. If nil, then SpinLock.
 	//  Compare: Comparator function.
